@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShowMe</title>
+<!-- ShowMe: paste markdown (slides split by ---, notes in <!-- comments -->, ```mermaid blocks) and present it.
+     Libraries load from jsDelivr. For offline/self-hosted use, download these files and change the URLs below:
+     reveal.js@5.1.0 (dist/reveal.js, dist/reveal.css, dist/theme/*.css, plugin/notes/notes.js), marked@12.0.2, mermaid@11 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link id="theme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css">
+<style>
+  :root { --bg:#fff; --fg:#1b1f24; --muted:#5b6570; --line:#d0d7de; --accent:#2f6fed; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171a; --fg:#e6e9ec; --muted:#98a2ad; --line:#2d333a; --accent:#6ea0ff; } }
+  #editor { max-width: 980px; margin: 0 auto; padding: 24px 16px 40px; font: 15px/1.5 system-ui, sans-serif; color: var(--fg); }
+  body.editing { background: var(--bg); }
+  #editor h1 { margin: 0 0 4px; font-size: 28px; }
+  #editor p.sub { margin: 0 0 16px; color: var(--muted); }
+  #md { width: 100%; height: 56vh; box-sizing: border-box; padding: 12px; font: 13px/1.45 ui-monospace, Menlo, Consolas, monospace;
+        background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+  #bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 12px; }
+  #bar button, #bar select, #bar label.btn { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+        background: var(--bg); color: var(--fg); cursor: pointer; }
+  #bar button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  #hint { margin-top: 14px; color: var(--muted); font-size: 13px; }
+  #hint code { background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px; }
+  #deck { display: none; }
+  body.presenting #deck { display: block; }
+  body.presenting #editor { display: none; }
+  /* deck styling */
+  .reveal { font-size: 30px; }
+  .reveal .slides section { text-align: left; }
+  .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+  .reveal h1 { font-size: 1.9em; } .reveal h2 { font-size: 1.4em; } .reveal h3 { font-size: 1em; font-weight: 400; }
+  .reveal table { font-size: .62em; margin: .5em 0; border-collapse: collapse; }
+  .reveal th, .reveal td { padding: .25em .6em; text-align: left; border-bottom: 1px solid rgba(127,127,127,.4); }
+  .reveal blockquote { width: 100%; box-sizing: border-box; }
+  .reveal pre { width: 100%; font-size: .5em; }
+  .reveal ul, .reveal ol { display: block; }
+  .mermaid-host { display: flex; justify-content: center; margin: .4em 0; }
+  .mermaid-host svg { max-width: 100%; max-height: 470px; height: auto; }
+  .mermaid-err { color: #ff6b6b; font: .5em ui-monospace, monospace; white-space: pre-wrap; }
+  #back { position: fixed; top: 8px; left: 8px; z-index: 50; font: 12px system-ui; padding: 4px 10px; border-radius: 6px;
+          border: 1px solid rgba(127,127,127,.5); background: rgba(0,0,0,.35); color: #fff; cursor: pointer; opacity: .35; }
+  #back:hover { opacity: 1; }
+</style>
+</head>
+<body class="editing">
+
+<div id="editor">
+  <h1>ShowMe</h1>
+  <p class="sub">Paste markdown, get a slide deck. Markdown + Mermaid, no build step.</p>
+  <textarea id="md" spellcheck="false" placeholder="Paste your markdown here, or drop a .md file on this page..."></textarea>
+  <div id="bar">
+    <button class="primary" id="go">Present</button>
+    <label class="btn">Open .md file <input id="file" type="file" accept=".md,.markdown,.txt" hidden></label>
+    <button id="example">Load example</button>
+    <label>Theme
+      <select id="themeSel"><option value="black">Dark</option><option value="white">Light</option></select>
+    </label>
+  </div>
+  <div id="hint">
+    Slides split on a line with only <code>---</code> (not inside code fences). Speaker notes: <code>&lt;!-- ... --&gt;</code>.
+    Diagrams: <code>```mermaid</code> blocks. Leading frontmatter is ignored (its <code>title:</code> becomes the page title).<br>
+    In the deck: arrows to navigate, <code>S</code> speaker view, <code>O</code> overview, <code>F</code> fullscreen, <code>?</code> help.
+    Tall slides shrink automatically to fit. Your text is saved in this browser. Use only with markdown you trust (raw HTML passes through).
+  </div>
+</div>
+
+<div id="deck" class="reveal"><div class="slides" id="slides"></div></div>
+<button id="back" style="display:none">Edit</button>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'showme.md', TKEY = 'showme.theme';
+const EXAMPLE = `---
+title: ShowMe example
+---
+
+# ShowMe
+### Markdown in, slides out
+
+<!-- Speaker note: press S for the speaker view. -->
+
+---
+
+## A diagram
+
+\`\`\`mermaid
+sequenceDiagram
+    Jij->>ShowMe: markdown
+    ShowMe-->>Jij: slides
+\`\`\`
+
+<!-- Mermaid renders inline. -->
+
+---
+
+## A table
+
+| Type | Works |
+|------|-------|
+| quadrantChart | yes |
+| timeline | yes |
+`;
+
+// persistence (guarded)
+function load(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function save(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+$('md').value = load(KEY) || '';
+$('themeSel').value = load(TKEY) || 'black';
+$('md').addEventListener('input', () => save(KEY, $('md').value));
+$('themeSel').addEventListener('change', () => save(TKEY, $('themeSel').value));
+$('example').onclick = () => { $('md').value = EXAMPLE; save(KEY, EXAMPLE); };
+async function openFile(f){ if(!f) return; const t = await f.text(); $('md').value = t; save(KEY, t); }
+$('file').onchange = e => openFile(e.target.files[0]);
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => { e.preventDefault(); if(document.body.classList.contains('editing')) openFile(e.dataTransfer.files[0]); });
+$('go').onclick = present;
+$('back').onclick = () => { location.hash = ''; location.reload(); };
+
+function parseDeck(src){
+  let md = src.replace(/\r\n/g, '\n'), title = '';
+  const fm = md.match(/^---\n([\s\S]*?)\n---[ \t]*(\n|$)/);
+  if (fm) { const t = fm[1].match(/^title:\s*(.+)$/m); if (t) title = t[1].trim().replace(/^["']|["']$/g, ''); md = md.slice(fm[0].length); }
+  const slides = []; let cur = [], fence = null;
+  for (const line of md.split('\n')) {
+    const f = line.match(/^\s*(`{3,}|~{3,})/);
+    if (f) { if (!fence) fence = f[1][0]; else if (f[1][0] === fence) fence = null; }
+    if (!fence && /^---\s*$/.test(line)) { slides.push(cur.join('\n')); cur = []; } else cur.push(line);
+  }
+  slides.push(cur.join('\n'));
+  return { title, slides: slides.filter(s => s.trim()) };
+}
+
+async function present(){
+  const src = $('md').value;
+  if (!src.trim()) { $('md').focus(); return; }
+  const { title, slides } = parseDeck(src);
+  const dark = $('themeSel').value === 'black';
+  $('theme').href = `https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/${$('themeSel').value}.css`;
+  if (title) document.title = title;
+  mermaid.initialize({ startOnLoad: false, theme: dark ? 'dark' : 'default' });
+
+  const host = $('slides'); host.innerHTML = '';
+  let n = 0;
+  for (const s of slides) {
+    const notes = [];
+    const body = s.replace(/<!--([\s\S]*?)-->/g, (m, t) => { notes.push(t.trim()); return ''; });
+    const sec = document.createElement('section');
+    sec.innerHTML = marked.parse(body);
+    for (const code of [...sec.querySelectorAll('code.language-mermaid')]) {
+      const div = document.createElement('div'); div.className = 'mermaid-host';
+      try { div.innerHTML = (await mermaid.render('sm' + (n++), code.textContent)).svg; }
+      catch (e) { div.innerHTML = '<div class="mermaid-err"></div>'; div.firstChild.textContent = 'Mermaid error: ' + (e.message || e); }
+      (code.closest('pre') || code).replaceWith(div);
+    }
+    if (notes.length) { const a = document.createElement('aside'); a.className = 'notes'; a.innerHTML = marked.parse(notes.join('\n\n')); sec.appendChild(a); }
+    host.appendChild(sec);
+  }
+  // mermaid.render leaves stray error nodes in body on failure
+  document.querySelectorAll('body > [id^="dsm"], body > [id^="sm"]').forEach(e => e.remove());
+
+  document.body.classList.replace('editing', 'presenting');
+  $('back').style.display = 'block';
+  const deck = new Reveal($('deck'), {
+    embedded: false, hash: true, width: 1280, height: 720, margin: 0.04, center: false,
+    controls: true, progress: true, slideNumber: 'c/t', plugins: [RevealNotes]
+  });
+  const fit = s => { if (!s) return; s.style.zoom = ''; const H = 650, h = s.scrollHeight; if (h > H) s.style.zoom = Math.max(0.45, H / h); };
+  deck.on('ready', e => fit(e.currentSlide));
+  deck.on('slidechanged', e => fit(e.currentSlide));
+  deck.initialize();
+}
+</script>
+</body>
+</html>
