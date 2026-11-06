@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ShowMe</title>
+<title>ShowMe v1.1</title>
 <!-- ShowMe: paste markdown (slides split by ---, notes in &lt!-- comments --&gt, ```mermaid blocks) and present it.
      Libraries load from jsDelivr. For offline/self-hosted use, download these files and change the URLs below:
      reveal.js@5.1.0 (dist/reveal.js, dist/reveal.css, dist/theme/*.css, plugin/notes/notes.js), marked@12.0.2, mermaid@11 -->
@@ -70,9 +70,9 @@
 <div id="deck" class="reveal"><div class="slides" id="slides"></div></div>
 <button id="back" style="display:none">Edit</button>
 
-<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/lib/marked.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/12.2.0/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/6.0.2/reveal.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
 <script>
 const $ = id => document.getElementById(id);
